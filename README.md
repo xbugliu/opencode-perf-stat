@@ -17,6 +17,16 @@ Request-level performance metrics for [opencode](https://opencode.ai): TTFT / TP
 aliyun-bailian/qwen3.8-max           2     3.166s     3.166s     4.692s      8.490s      8.490s      8.862s     99.2ms    99.2ms   174.2ms    35,543       220     49,408         0         $0
 ```
 
+Per-request details (`--detail`):
+
+```
+  单笔请求明细 (2 笔)
+   #  发起时间                  模型                             TTFT       TPOT     总耗时        Gen    TokIN   TokOUT    CacheR   CacheW       Cost  Tools  Finish
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+   1  2026-08-12 23:25:11       aliyun-bailian/qwen3.8-max     4.723s     22.7ms     8.870s     4.147s   35,177      183     7,168        0         $0      1  tool-calls
+   2  2026-08-12 23:25:19       aliyun-bailian/qwen3.8-max     1.608s    175.7ms     8.110s     6.502s      366       37    42,240        0         $0      0  stop
+```
+
 ## How it works
 
 - **`perf_stats.ts`** — opencode plugin. Listens to `message.updated` / `message.part.updated` events and appends one JSON record per completed assistant request to `metrics-YYYY-MM-DD.jsonl`.
