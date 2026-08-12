@@ -143,6 +143,8 @@ def fmt_local_ts(raw_ts):
     """Render an ISO timestamp in local time; fall back to raw text."""
     if not raw_ts:
         return "N/A"
+    if not isinstance(raw_ts, str):
+        return str(raw_ts)[:23]
     try:
         dt = datetime.fromisoformat(raw_ts.replace("Z", "+00:00")).astimezone(LOCAL_TZ)
         return dt.strftime("%Y-%m-%d %H:%M:%S")

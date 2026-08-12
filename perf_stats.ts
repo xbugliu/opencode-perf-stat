@@ -40,6 +40,16 @@ const userPromptPending = new Set<string>()
 const userCreatedCache = new Map<string, number>()
 const sessionAgentCache = new Map<string, string>()
 
+const MAX_CACHE_SIZE = 2000
+
+function cacheSet<T>(cache: Map<string, T>, key: string, value: T) {
+  cache.set(key, value)
+  if (cache.size > MAX_CACHE_SIZE) {
+    const oldest = cache.keys().next().value
+    if (oldest !== undefined) cache.delete(oldest)
+  }
+}
+
 function ensureDir() {
   if (!existsSync(PERF_DIR)) mkdirSync(PERF_DIR, { recursive: true })
 }
@@ -96,7 +106,7 @@ async function fetchSessionAgent(ctx: any, sessionID: string): Promise<string> {
   try {
     const res = await ctx.client.session.get({ path: { id: sessionID } })
     const agent = res?.data?.agent || ""
-    if (agent) sessionAgentCache.set(sessionID, agent)
+    if (agent) cacheSet(sessionAgentCache, sessionID, agent)
     return agent
   } catch {
     return ""
@@ -201,12 +211,12 @@ export const PerfStatsPlugin: Plugin = async (ctx) => {
           case "message.updated": {
             const info = event.properties.info
             if (info.role === "user") {
-              userCreatedCache.set(info.id, info.time.created)
+              cacheSet(userCreatedCache, info.id, info.time.created)
               if (!userPromptCache.has(info.id) && !userPromptPending.has(info.id)) {
                 userPromptPending.add(info.id)
                 fetchUserPrompt(ctx, info.sessionID, info.id).then(({ text, created }) => {
-                  userPromptCache.set(info.id, text)
-                  if (created) userCreatedCache.set(info.id, created)
+                  cacheSet(userPromptCache, info.id, text)
+                  if (created) cacheSet(userCreatedCache, info.id, created)
                   userPromptPending.delete(info.id)
                 })
               }

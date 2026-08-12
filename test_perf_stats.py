@@ -132,6 +132,12 @@ class TestHelpers(unittest.TestCase):
         self.assertEqual(perf_stats.trunc("a\nb", 5), "a b")
         self.assertEqual(perf_stats.trunc("abcdefg", 5), "ab...")
 
+    def test_fmt_local_ts(self):
+        self.assertEqual(perf_stats.fmt_local_ts(None), "N/A")
+        self.assertEqual(perf_stats.fmt_local_ts(""), "N/A")
+        self.assertEqual(perf_stats.fmt_local_ts(1234567890), "1234567890")
+        self.assertEqual(perf_stats.fmt_local_ts("bad-timestamp"), "bad-timestamp")
+
 
 class TestListDates(unittest.TestCase):
     def test_list_available_dates(self):
