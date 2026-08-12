@@ -1,63 +1,90 @@
-# opencode perf stats
+# opencode-perf-stat
 
-为 opencode 收集请求级性能指标（TTFT / TPOT / 总耗时 / tokens / cache / cost），并提供汇总分析脚本。
+[简体中文](README.zh-CN.md)
 
-## 文件
+Request-level performance metrics for [opencode](https://opencode.ai): TTFT / TPOT / total latency / tokens / cache / cost, collected by a plugin into JSONL, plus an analysis script that renders summaries and per-request details.
 
-| 文件 | 说明 |
+```
+  汇总统计 — 2026-08-12
+
+  总请求数:      2
+  总 Tokens:     input=35,543  output=220  reasoning=272
+  总 Cache:      read=49,408  write=0
+  总 Cost:       $0.000000
+
+模型                            请求数   TTFT avg        p50        p99   Total avg         p50         p99   TPOT avg        p50        p99     TokIN    TokOUT    CacheR    CacheW       Cost
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+aliyun-bailian/qwen3.8-max           2     3.166s     3.166s     4.692s      8.490s      8.490s      8.862s     99.2ms    99.2ms   174.2ms    35,543       220     49,408         0         $0
+```
+
+## How it works
+
+- **`perf_stats.ts`** — opencode plugin. Listens to `message.updated` / `message.part.updated` events and appends one JSON record per completed assistant request to `metrics-YYYY-MM-DD.jsonl`.
+- **`perf_stats.py`** — analysis script. Reads the JSONL files and prints a per-model summary (avg / p50 / p99) and optional per-request details.
+
+## Requirements
+
+Tested with:
+
+| Component | Version |
 | --- | --- |
-| `perf_stats.ts` | opencode 插件：监听 `message.updated` / `message.part.updated`，每次助手消息完成写入一条 JSONL |
-| `perf_stats.py` | 分析脚本：读取 metrics JSONL，输出汇总与（可选）单笔明细 |
-| `test_perf_stats.py` | `perf_stats.py` 的单元测试 |
+| opencode | 1.18.16 |
+| Python (analysis script) | 3.13 (works on 3.8+) |
 
-## 安装插件
+## Install the plugin
 
-把 `perf_stats.ts` 放到全局插件目录（自动发现，无需配置）：
+Drop `perf_stats.ts` into the global plugins directory (auto-discovered, no config needed):
 
 ```sh
 mkdir -p ~/.config/opencode/plugins
 cp perf_stats.ts ~/.config/opencode/plugins/
 ```
 
-或放到项目级 `.opencode/plugins/`。插件只在启动时加载，改完需**重启 opencode**。
+Or into the project-level `.opencode/plugins/`. Plugins are loaded at startup only — **restart opencode** after changes.
 
-## 数据输出
+## Data output
 
-默认写 `~/.opencode/perf/`，可用环境变量覆盖：
+Writes to `~/.opencode/perf/` by default. Override via environment variables:
 
-- `OPENCODE_PERF_DIR=/path/to/dir` — metrics 与 content 文件目录
-- `OPENCODE_PERF_NO_CONTENT=1` — **隐私开关**：不写入 `user_prompt` / `output_text` / `reasoning_text`，也不写 `content-*.log`
+- `OPENCODE_PERF_DIR=/path/to/dir` — directory for metrics and content files
+- `OPENCODE_PERF_NO_CONTENT=1` — **privacy switch**: omits `user_prompt` / `output_text` / `reasoning_text` from metrics and skips `content-*.log` entirely
 
-文件命名：
+Files produced:
 
-- `metrics-YYYY-MM-DD.jsonl` — 每请求一行 JSON，含 `ttft_ms`、`tpot_ms`、`total_ms`、`tokens_*`、`cache_*`、`cost`、`finish`、`error` 等
-- `content-YYYY-MM-DD.log` — 人类可读的请求/输出记录（受隐私开关控制）
+- `metrics-YYYY-MM-DD.jsonl` — one JSON line per request: `ttft_ms`, `tpot_ms`, `total_ms`, `generation_ms`, `tokens_*`, `cache_*`, `cost`, `finish`, `tool_calls`, `error`, ...
+- `content-YYYY-MM-DD.log` — human-readable record of prompts and outputs (subject to the privacy switch)
 
-## 使用
+## Usage
 
 ```sh
-# 今天汇总（默认只打印汇总）
+# Today's summary (default: summary only)
 python3 perf_stats.py
 
-# 指定日期
+# A specific date
 python3 perf_stats.py 2026-08-12
 
-# 额外打印单笔明细与用户输入摘要
+# Also print per-request details and user-prompt snippets
 python3 perf_stats.py --detail
 
-# 只看某模型（子串匹配）
+# Filter by model (substring match)
 python3 perf_stats.py --model deepseek
 
-# 指定数据目录
+# Custom data directory
 python3 perf_stats.py --dir /path/to/perf
 
-# 列出所有可用日期
+# List available dates
 python3 perf_stats.py --list
 ```
 
-已取消/超时/错误的请求单独列出，不参与汇总统计。
+Cancelled / timed-out / errored requests are listed separately and excluded from the summary.
 
-## 测试
+Notes:
+
+- `tokens_input` does not include `cache_read` (as reported by the provider).
+- `cost` is only populated when opencode has pricing configured for the model; otherwise it is 0.
+- Percentiles use linear interpolation; small samples (n < 5) are indicative only.
+
+## Tests
 
 ```sh
 python3 -m unittest test_perf_stats -v
@@ -65,4 +92,4 @@ python3 -m unittest test_perf_stats -v
 
 ## License
 
-MIT，见 [LICENSE](LICENSE)。
+MIT, see [LICENSE](LICENSE).
