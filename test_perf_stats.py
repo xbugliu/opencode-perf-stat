@@ -101,10 +101,11 @@ class TestAggregate(unittest.TestCase):
 
 class TestHelpers(unittest.TestCase):
     def test_percentile(self):
-        self.assertEqual(perf_stats.percentile([1, 2, 3, 4], 0.5), 3)
-        self.assertEqual(perf_stats.percentile([1, 2, 3, 4], 0.99), 4)
+        self.assertEqual(perf_stats.percentile([1, 2, 3, 4], 0.5), 2.5)
+        self.assertAlmostEqual(perf_stats.percentile([1, 2, 3, 4], 0.99), 3.97)
         self.assertEqual(perf_stats.percentile([], 0.5), 0)
         self.assertEqual(perf_stats.percentile([5], 0.99), 5)
+        self.assertEqual(perf_stats.percentile([1608, 4723], 0.5), 3165.5)
 
     def test_avg(self):
         self.assertEqual(perf_stats.avg([1, 2, 3]), 2)

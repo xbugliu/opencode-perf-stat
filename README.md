@@ -15,11 +15,11 @@
 把 `perf_stats.ts` 放到全局插件目录（自动发现，无需配置）：
 
 ```sh
-mkdir -p ~/.config/opencode/plugin
-cp perf_stats.ts ~/.config/opencode/plugin/
+mkdir -p ~/.config/opencode/plugins
+cp perf_stats.ts ~/.config/opencode/plugins/
 ```
 
-或放到项目级 `.opencode/plugin/`。配置只在启动时加载，改完需**重启 opencode**。
+或放到项目级 `.opencode/plugins/`。插件只在启动时加载，改完需**重启 opencode**。
 
 ## 数据输出
 

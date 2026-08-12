@@ -98,12 +98,15 @@ def fmt_cost(c):
 
 
 def percentile(sorted_arr, p):
+    """Linear-interpolation percentile on a sorted array."""
     if not sorted_arr:
         return 0
-    idx = int(len(sorted_arr) * p)
-    if idx >= len(sorted_arr):
-        idx = len(sorted_arr) - 1
-    return sorted_arr[idx]
+    if len(sorted_arr) == 1:
+        return sorted_arr[0]
+    k = (len(sorted_arr) - 1) * p
+    lo = int(k)
+    hi = min(lo + 1, len(sorted_arr) - 1)
+    return sorted_arr[lo] + (sorted_arr[hi] - sorted_arr[lo]) * (k - lo)
 
 
 def avg(arr):
