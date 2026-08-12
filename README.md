@@ -29,8 +29,12 @@ Per-request details (`--detail`):
 
 ## How it works
 
-- **`perf_stats.ts`** — opencode plugin. Listens to `message.updated` / `message.part.updated` events and appends one JSON record per completed assistant request to `metrics-YYYY-MM-DD.jsonl`.
-- **`perf_stats.py`** — analysis script. Reads the JSONL files and prints a per-model summary (avg / p50 / p99) and optional per-request details.
+Two data sources, both supported by the analysis script:
+
+- **opencode's SQLite database (default)** — reads `message` / `part` tables directly from `~/.local/share/opencode/opencode.db` (or `$XDG_DATA_HOME/opencode/opencode.db`). No plugin needed; works on all historical requests.
+- **plugin JSONL (optional)** — `perf_stats.ts` listens to `message.updated` / `message.part.updated` events and appends one record per completed assistant request to `metrics-YYYY-MM-DD.jsonl`. Use it when you want precise streaming-derived TTFT/TPOT or a standalone content log.
+
+`perf_stats.py` reads either source and prints a per-model summary (avg / p50 / p99) and optional per-request details.
 
 ## Requirements
 
@@ -41,9 +45,9 @@ Tested with:
 | opencode | 1.18.16 |
 | Python (analysis script) | 3.13 (works on 3.8+) |
 
-## Install the plugin
+## Install the plugin (optional)
 
-Drop `perf_stats.ts` into the global plugins directory (auto-discovered, no config needed):
+Only needed for the JSONL data source. Drop `perf_stats.ts` into the global plugins directory (auto-discovered, no config needed):
 
 ```sh
 mkdir -p ~/.config/opencode/plugins
@@ -54,12 +58,12 @@ Or into the project-level `.opencode/plugins/`. Plugins are loaded at startup on
 
 ## Data output
 
-Writes to `~/.opencode/perf/` by default. Override via environment variables:
+The SQLite source reads opencode's own database — nothing is written. When using the plugin, it writes to `~/.opencode/perf/` by default, overridable via environment variables:
 
 - `OPENCODE_PERF_DIR=/path/to/dir` — directory for metrics and content files
 - `OPENCODE_PERF_NO_CONTENT=1` — **privacy switch**: omits `user_prompt` / `output_text` / `reasoning_text` from metrics and skips `content-*.log` entirely
 
-Files produced:
+Plugin files:
 
 - `metrics-YYYY-MM-DD.jsonl` — one JSON line per request: `ttft_ms`, `tpot_ms`, `total_ms`, `generation_ms`, `tokens_*`, `cache_*`, `cost`, `finish`, `tool_calls`, `error`, ...
 - `content-YYYY-MM-DD.log` — human-readable record of prompts and outputs (subject to the privacy switch)
@@ -67,7 +71,7 @@ Files produced:
 ## Usage
 
 ```sh
-# Today's summary (default: summary only)
+# Today's summary from the SQLite database (default source)
 python3 perf_stats.py
 
 # A specific date
@@ -79,8 +83,12 @@ python3 perf_stats.py --detail
 # Filter by model (substring match)
 python3 perf_stats.py --model deepseek
 
-# Custom data directory
-python3 perf_stats.py --dir /path/to/perf
+# Use the plugin's JSONL files instead of the database
+python3 perf_stats.py --source jsonl
+
+# Point at a specific database or metrics directory
+python3 perf_stats.py --db /path/to/opencode.db
+python3 perf_stats.py --source jsonl --dir /path/to/perf
 
 # List available dates
 python3 perf_stats.py --list
@@ -93,6 +101,7 @@ Notes:
 - `tokens_input` does not include `cache_read` (as reported by the provider).
 - `cost` is only populated when opencode has pricing configured for the model; otherwise it is 0.
 - Percentiles use linear interpolation; small samples (n < 5) are indicative only.
+- Metrics derived from the database (TTFT = first part time − message created, total = created → completed) match the plugin's event-derived values, but cover historical requests the plugin never saw.
 
 ## Tests
 

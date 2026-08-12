@@ -29,8 +29,12 @@ aliyun-bailian/qwen3.8-max           2     3.166s     3.166s     4.692s      8.4
 
 ## 工作原理
 
-- **`perf_stats.ts`** — opencode 插件：监听 `message.updated` / `message.part.updated` 事件，每次助手请求完成时往 `metrics-YYYY-MM-DD.jsonl` 追加一条 JSON 记录。
-- **`perf_stats.py`** — 分析脚本：读取 JSONL 文件，输出按模型汇总（avg / p50 / p99）与可选的单笔明细。
+两种数据源，分析脚本都支持：
+
+- **opencode SQLite 数据库（默认）** — 直接读 `~/.local/share/opencode/opencode.db`（或 `$XDG_DATA_HOME/opencode/opencode.db`）的 `message` / `part` 表。无需插件，可追溯全部历史请求。
+- **插件 JSONL（可选）** — `perf_stats.ts` 监听 `message.updated` / `message.part.updated` 事件，每次助手请求完成时往 `metrics-YYYY-MM-DD.jsonl` 追加一条记录。需要精确的流式 TTFT/TPOT 或独立内容日志时使用。
+
+`perf_stats.py` 读取任一数据源，输出按模型汇总（avg / p50 / p99）与可选的单笔明细。
 
 ## 环境要求
 
@@ -41,9 +45,9 @@ aliyun-bailian/qwen3.8-max           2     3.166s     3.166s     4.692s      8.4
 | opencode | 1.18.16 |
 | Python（分析脚本） | 3.13（3.8+ 可用） |
 
-## 安装插件
+## 安装插件（可选）
 
-把 `perf_stats.ts` 放到全局插件目录（自动发现，无需配置）：
+仅 JSONL 数据源需要。把 `perf_stats.ts` 放到全局插件目录（自动发现，无需配置）：
 
 ```sh
 mkdir -p ~/.config/opencode/plugins
@@ -54,12 +58,12 @@ cp perf_stats.ts ~/.config/opencode/plugins/
 
 ## 数据输出
 
-默认写 `~/.opencode/perf/`，可用环境变量覆盖：
+数据库源只读，不写任何文件。插件源默认写 `~/.opencode/perf/`，可用环境变量覆盖：
 
 - `OPENCODE_PERF_DIR=/path/to/dir` — metrics 与 content 文件目录
 - `OPENCODE_PERF_NO_CONTENT=1` — **隐私开关**：不写入 `user_prompt` / `output_text` / `reasoning_text`，也不写 `content-*.log`
 
-文件命名：
+插件文件命名：
 
 - `metrics-YYYY-MM-DD.jsonl` — 每请求一行 JSON，含 `ttft_ms`、`tpot_ms`、`total_ms`、`generation_ms`、`tokens_*`、`cache_*`、`cost`、`finish`、`tool_calls`、`error` 等
 - `content-YYYY-MM-DD.log` — 人类可读的请求/输出记录（受隐私开关控制）
@@ -67,7 +71,7 @@ cp perf_stats.ts ~/.config/opencode/plugins/
 ## 使用
 
 ```sh
-# 今天汇总（默认只打印汇总）
+# 今天汇总（默认用 SQLite 数据库）
 python3 perf_stats.py
 
 # 指定日期
@@ -79,8 +83,12 @@ python3 perf_stats.py --detail
 # 只看某模型（子串匹配）
 python3 perf_stats.py --model deepseek
 
-# 指定数据目录
-python3 perf_stats.py --dir /path/to/perf
+# 改用插件 JSONL 文件
+python3 perf_stats.py --source jsonl
+
+# 指定数据库或数据目录
+python3 perf_stats.py --db /path/to/opencode.db
+python3 perf_stats.py --source jsonl --dir /path/to/perf
 
 # 列出所有可用日期
 python3 perf_stats.py --list
@@ -93,6 +101,7 @@ python3 perf_stats.py --list
 - `tokens_input` 不含 `cache_read`（与 provider 上报口径一致）。
 - `cost` 仅在 opencode 配置了该模型价格时才有值，否则为 0。
 - 百分位采用线性插值；样本量少（n < 5）时仅供参考。
+- 数据库推导的指标（TTFT = 首个 part 时间 − 消息创建；总耗时 = created → completed）与插件事件推导值一致，但能覆盖插件未安装时期的全部历史请求。
 
 ## 测试
 
